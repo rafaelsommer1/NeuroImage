@@ -1,0 +1,15 @@
+#!/bin/bash
+
+usage ()
+{
+  echo 'Usage: combineLesions "folder" '
+  echo 'folder = Path to directory with manually segmented lesions nifti masks'
+  exit
+}
+
+if [ -z "$1" ]
+  then
+  usage
+fi
+
+Rscript ${SCRIPTS_RCS}/R/combineManualLesions.R $1

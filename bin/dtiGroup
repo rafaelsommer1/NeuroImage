@@ -1,0 +1,26 @@
+#!/bin/bash
+echo "List of DTI files"
+read list $*
+read -p "Bvecs file: " bvecs
+read -p "Bvecs file: " bvals
+
+for dti in ${list[@]} ; do
+    echo 'Reorienting'
+    fslreorient2std ${dti} ${dti}
+    echo 'Extracting brain'
+    bet ${dti} ${dti}_brain \
+        -m \
+        -f 0.25
+    echo 'Correcting eddy current and fitting model'
+    eddy_correct ${dti} ${dti}_brainC 0
+
+    dtifit -k ${dti}_brainC \
+    -o ${dti} \
+    -m ${dti}_brain_mask \
+    -r bvecs \
+    -b bvals
+
+
+
+done
+

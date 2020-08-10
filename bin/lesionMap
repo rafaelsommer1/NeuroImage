@@ -1,0 +1,36 @@
+#!/bin/bash
+
+usage ()
+{
+  echo 'Usage: lesionMap <t1> <t2> <flair>'
+  echo 'Call this script from the top of the files folder'
+  exit
+}
+
+if [ -z "$1" ]
+  then
+  usage
+fi
+
+if [ -z "$2" ]
+  then
+  usage
+fi
+
+if [ -z "$3" ]
+  then
+    usage
+fi
+
+
+echo 'reorienting t1'
+fslreorient2std ${1} ${1}
+
+echo 'reorienting t2'
+fslreorient2std ${2} ${2}
+
+echo 'reorienting flair'
+fslreorient2std ${3} ${3}
+
+Rscript ${SCRIPTS_RCS}/R/lesionMap.R $1 $2 $3
+

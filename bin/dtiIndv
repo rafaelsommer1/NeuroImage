@@ -1,0 +1,72 @@
+#!/bin/bash
+
+dcmdir=$(zenity --file-selection --title 'Select DICOM dir' --directory)
+outdir=$(zenity --file-selection --title 'Select Output dir' --directory)
+
+echo 'Script criado por Rafael Sommer, baseado nos programas de difusão FSL (fsl.fmrib.ox.ac.uk/fsl/fslwiki)'
+
+if [ -z "$dcmdir" ] ; then 
+    echo "Selecione a pasta DICOM"
+    exit 1
+fi
+if [ -z "$outdir" ] ; then
+    echo "Selecione a pasta do output"
+    exit 2
+fi
+
+
+echo 'Convertendo DICOM'
+dcm2nii $dcmdir
+    mv $dcmdir/*.nii.gz  $outdir
+    mv $dcmdir/*.bvec $outdir
+    mv $dcmdir/*.bval $outdir
+
+cd $outdir
+    mv *.nii.gz dti.nii.gz
+    mv *.bvec bvecs
+    mv *.bval bvals
+
+fslreorient2std dti.nii.gz dti.nii.gz
+echo 'Extraindo tecido cerebral'
+bet dti.nii.gz brain \
+    -m \
+    -f 0.25
+
+echo 'Corrigindo corrente eddy'
+eddy_correct dti.nii.gz brainC 0
+
+echo 'Ajustando tensores'
+dtifit -k brainC \
+  -o dti \
+  -m brain_mask \
+  -r bvecs \
+  -b bvals
+
+
+echo 'Realizando TBSS e extração de esqueleto'
+mkdir results_fa
+cp dti_FA.nii.gz results_fa.nii.gz
+cd results_fa
+
+tbss_1_preproc *.nii.gz
+tbss_2_reg -T
+tbss_3_postreg -T
+tbss_4_prestats 0.2
+
+cd stats
+for roinum in {1..48}
+  do
+    fslmaths $FSLDIR/data/atlases/JHU/JHU-ICBM-labels-1mm.nii.gz -thr $roinum \
+      -uthr $roinum \
+      -bin roimask
+    fslmaths roimask -mas mean_FA_skeleton_mask.nii.gz -bin roimask
+    padroi=`$FSLDIR/bin/zeropad $roinum 3`
+    fslmeants -i all_FA_skeletonised.nii.gz -m roimask -o meants_roi${padroi}.txt
+    cat meants_roi${padroi}.txt >> fa_values.txt
+    rm meants_roi${padroi}.txt
+done
+
+paste $SCRIPTS_RCS/labels-jhu.txt fa_values.txt >> fa_struc.txt
+
+echo 'Finalizado! Arquivos quantitativos em: '
+echo ${outdir}/results_fa/stats/fa_struc.txt

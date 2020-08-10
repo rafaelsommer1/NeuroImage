@@ -1,0 +1,4 @@
+#!/bin/sh
+
+sudo echo "export SCRIPTS_RCS=`pwd`" >> ~/.bashrc
+sudo echo "export PATH=$PATH:`pwd`/bin" >> ~/.bashrc

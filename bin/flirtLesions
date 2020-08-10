@@ -1,0 +1,30 @@
+#!/bin/bash
+
+usage ()
+{
+  echo 'Usage: flirtLesions <list of lesions mask> <transformation matrix> <diffusion data>'
+  echo 'Provide lesion filenames without the sufixes ".nii.gz" '
+  exit
+}
+
+if [ $# -lt 3 ]
+  then
+    usage
+fi
+
+args=($@)
+
+lesions="${args[@]::${#args[@]}-1}"
+matrix="${args[-2]}"
+nld="${args[-1]}"
+
+for lesion in ${lesions[@]} ; do
+    if [ "$lesion" = "$matrix" ] ; then 
+    echo "Lesions sucessfully transformed"
+    exit 0
+    fi
+        flirt -in $lesion -ref $nld -applyxfm -init $matrix -out ${lesion}_reg
+        fslmaths ${lesion}_reg -thr 0.1 ${lesion}_reg
+        fslmaths ${lesion}_reg -bin ${lesion}_reg
+
+done

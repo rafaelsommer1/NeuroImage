@@ -1,0 +1,64 @@
+#!/bin/bash
+
+t1=$(zenity --file-selection --title 'Select DICOM dir' --directory)
+outdir=$(zenity --file-selection --title 'Select Output dir' --directory)
+out=$(zenity --title 'Output name' --text 'Name: ' --entry)
+
+
+echo 'Script criado por Rafael Sommer, baseado nos programas de reconstrução de FreeSurfer (surfer.nmr.mgh.harvard.edu/fswiki/FreeSurferWiki)'
+
+if [ -z "$t1" ] ; then 
+    echo "Selecione arquivo t1.nii"
+    exit 1
+fi
+if [ -z "$outdir" ] ; then
+    echo "Selecione a pasta do output"
+    exit 2
+fi
+if [ -z "$out" ] ; then
+    echo "Digite nome valido para output"
+    exit 2
+fi
+
+
+
+cp $t1 $outdir
+cd ${outdir}
+export SUBJECTS_DIR=${outdir}
+
+
+# Processamento básico
+
+recon-all -i $t1 -s ${out}_proc -all
+recon-all -s ${out}_proc -qcache
+recon-all -s ${out}_proc -brainstem-structures
+recon-all -s ${out}_proc -hippocampal-subfields-T1
+
+# Gerar z-maps
+cd $SUBJECTS_DIR
+
+mkdir ${out}_zscore
+cd ${out}_proc/surf
+cp lh.thickness.fwhm10.fsaverage.mgh ${outdir}/${out}_zscore
+cp rh.thickness.fwhm10.fsaverage.mgh ${outdir}/${out}_zscore
+
+for hemi in l r ; do
+    for stat in mean std ; do
+        cp $SCRIPTS_RCS/zscore/${hemi}h_${stat}.mgh ${outdir}/${out}_zscore
+    done
+done
+
+cd ${outdir}/${out}_zscore
+
+fscalc.fsl --surf fsaverage lh lh.thickness.fwhm10.fsaverage.mgh -sub lh_mean.mgh -div lh_std.mgh lh_zscore.mgh
+fscalc.fsl --surf fsaverage rh rh.thickness.fwhm10.fsaverage.mgh -sub rh_mean.mgh -div rh_std.mgh rh_zscore.mgh
+
+# Script em R para organizar os dados
+Rscript $SCRIPTS_RCS/freesurfer_x.R \
+	${outdir}/${out}_proc/stats/aseg.stats \
+	${outdir}/FS/${out}_proc/stats/lh.aparc.stats \
+	${outdir}/${out}_proc/stats/rh.aparc.stats
+
+mv VolumeSubcortical.csv ${outdir}/${out}_proc
+mv DadosCorticaisHD.csv ${outdir}/${out}_proc
+mv DadosCorticaisHE.csv ${outdir}/${out}_proc

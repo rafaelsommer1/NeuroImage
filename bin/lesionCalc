@@ -1,0 +1,22 @@
+#!/bin/bash
+
+Usage () {
+    echo '                          Usage:'
+    echo '          Function for calculating NLD lesion values'
+	echo 'lesionCalc <directory with lesion masks> <coregistered NLD file> <outdir>'
+    exit
+}
+
+if [ $# -eq 0 ]
+  then
+    Usage
+fi
+
+cd $1
+
+for lesion in `ls` ; do
+	fslstats $2 -k ${lesion} -M >> ${3}/values.txt
+done
+
+ls *.nii.gz >> ${3}/files.txt
+paste ${3}/values.txt ${3}/files.txt  >> ${3}/results.txt
