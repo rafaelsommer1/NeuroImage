@@ -1,0 +1,32 @@
+#!/bin/bash
+
+echo "Script created by Rafael C. S."
+
+# Segment tissues
+echo "Segmentating brain tissues"
+fast ${1}
+# Cleanup
+rm ${1}_seg.nii.gz 
+rm ${1}_mixel*
+rm ${1}_pveseg.nii.gz
+# Mask white matter pve
+fslmaths ${1}_pve_2 -thr 0.9 wm_mask
+# Initial flirt
+echo "initial xfm"
+flirt -in ./${2} -ref ./${1} -dof 6 \
+    -interp nearestneighbour -omat diff2struc.mat
+echo "bbr xfm"
+flirt -in ./${2} -ref ./${1} \
+    -dof 6 -cost bbr -wmseg wm_mask \
+    -init diff2struc.mat -omat diff2struc_bbr.mat \
+    -schedule $FSLDIR/etc/flirtsch/bbr.sch -out diff2struct.nii.gz
+
+transformconvert diff2struc_bbr.mat ./${2} ./${1} \
+    flirt_import \
+    diff2struc_mrtrix.txt -force
+
+mrtransform -linear diff2struc_mrtrix.txt \
+    -inverse ./${1} \
+    t1_coreg.nii.gz -force
+
+echo "done"

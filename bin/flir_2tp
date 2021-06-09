@@ -1,0 +1,26 @@
+#!/bin/bash
+
+A1=`${FSLDIR}/bin/remove_ext $1`
+A2=`${FSLDIR}/bin/remove_ext $2`
+
+flirt -in ${A1} -ref ${A2} -dof 6 -omat ${A1}_to_${A2}.mat
+flirt -in ${A2} -ref ${A1} -dof 6 -omat ${A2}_to_${A1}.mat
+
+F=${A1}_to_${A2}.mat
+B=${A2}_to_${A1}.mat
+
+convert_xfm -concat $B -omat tmp_${F}_then_${B} $F
+avscale tmp_${F}_then_${B} ${A1} > tmp_${F}_then_${B}.avscale
+extracttxt Backward tmp_${F}_then_${B}.avscale 4 1 > tmp_${F}_then_${B}_halfback
+convert_xfm -concat tmp_${F}_then_${B}_halfback -omat $F $F
+convert_xfm -inverse -omat $B $F
+/bin/rm tmp_${F}_then_${B} tmp_${F}_then_${B}.avscale tmp_${F}_then_${B}_halfback
+
+# replace the .mat matrix that takes 2->1 with one that takes 2->halfway and one that takes 1->halfway
+${FSLDIR}/bin/avscale ${A2}_to_${A1}.mat ${A1} > ${A2}_to_${A1}.mat_avscale
+${FSLDIR}/bin/extracttxt Forward ${A2}_to_${A1}.mat_avscale 4 1 > ${A2}_halfwayto_${A1}.mat
+${FSLDIR}/bin/extracttxt Backward ${A2}_to_${A1}.mat_avscale 4 1 > ${A1}_halfwayto_${A2}.mat
+
+# Register to halfway template
+${FSLDIR}/bin/flirt -out ${A1}_halfwayto_${A2} -applyxfm -init ${A1}_halfwayto_${A2}.mat -ref ${A1} -in ${A1}
+${FSLDIR}/bin/flirt -out ${A2}_halfwayto_${A1} -applyxfm -init ${A2}_halfwayto_${A1}.mat -ref ${A1} -in ${A2}
